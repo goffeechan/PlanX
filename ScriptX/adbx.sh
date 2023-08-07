@@ -11,7 +11,7 @@ adbx() {
             adb "$@"
             ;;
         *)
-            if [ "$1" = "-s" ]; then
+            if [ "$1" = "-s" ] || [ "$1" = "-d" ] || [ "$1" = "-e" ] || [ "$1" = "devices" ]; then
                 adb "$@"
             else
                 chosenDevice=$(__choose_device)
@@ -151,10 +151,83 @@ adbx.accessibility() {
     fi
 }
 
+adbx.server.kill() {
+    adb kill-server
+}
+
+adbx.server.start() {
+    adb start-server
+}
+
+adbx.server.restart() {
+    adb kill-server
+    adb start-server
+}
+
+adbx.ip() {
+    adbx shell ifconfig wlan0
+}
+
+adbx.hard.info() {
+    device=$(__get_device)
+    brand=$(adb -s $device shell getprop ro.product.brand)
+    model=$(adb -s $device shell getprop ro.product.model)
+    __echo "Brand: $brand ($model)"
+    abi=$(adb -s $device shell getprop ro.product.cpu.abi)
+    __echo "ABI: $abi"
+    imei=$(adb -s $device shell service call iphonesubinfo 1 | awk -F "'" '{print $2}' | sed '1 d' | tr -d '.' | awk '{print}' ORS='')
+}
+
+adbx.soft.info() {
+    device=$(__get_device)
+    osVersion=$(adb -s $device shell getprop ro.build.version.release)
+    sdkVersion=$(adb -s $device shell getprop ro.build.version.sdk)
+    __echo "OS version: $osVersion (SDK: $sdkVersion)"
+    kernelVersion=$(adb -s $device shell uname -r)
+    __echo "Kernel version: $kernelVersion"
+    buildNumber=$(adb -s $device shell getprop ro.build.display.id)
+    __echo "Build number: $buildNumber"
+}
+
+adbx.battery.info() {
+    device=$(__get_device)
+    batteryLevel=$(adb -s $device shell dumpsys battery | grep level | awk '{print $2}')
+    batteryStatus=$(adb -s $device shell dumpsys battery | grep status | awk '{print $2}')
+    batteryHealth=$(adb -s $device shell dumpsys battery | grep health | awk '{print $2}')
+    batteryTemp=$(adb -s $device shell dumpsys battery | grep temperature | awk '{print $2}')
+    batteryVolt=$(adb -s $device shell dumpsys battery | grep voltage | awk '{print $2}')
+    __echo "Battery status: $(__get_battery_status_tag $batteryStatus)"
+    __echo "Battery level: $batteryLevel%"
+}
+
+# Deeplink
+adbx.deeplink.open() {
+    adbx shell am start -a android.intent.action.VIEW -d $1
+}
+
+adbx.deeplink.call() {
+    adbx shell am start -a android.intent.action.CALL -d tel:$1
+}
+
+adbx.deeplink.sms() {
+    adbx shell am start -a android.intent.action.VIEW -d sms:$1
+}
+
+# Top
+adbx.top() {
+    # if no arguments, run top on the device
+    if [ $# -eq 0 ]; then
+        adbx shell top
+        return 0
+    # else $1 is the name of the process
+    else 
+        adbx shell top -p \`pgrep "$1"\`
+    fi
+}
+
 # A wrapper for echo
 # format: *** adbx: {message} ***
 __echo() {
-    # if parameter count is 2, then it's a level and a message
     echo "*** adbx: $1 ***"
 }
 
@@ -164,6 +237,24 @@ __number_of_connected_devices() {
 
 __choose_device() {
     adb devices | tail -n +2 | fzf | awk '{print $1}'
+}
+
+__get_device() {
+    case $(__number_of_connected_devices) in
+        0)
+            # exit if no devices connected
+            __echo "No devices connected"
+            exit 0
+            ;;
+        1)
+            # return the only device
+            adb devices | tail -n +2 | awk '{print $1}'
+            ;;
+        *)
+            # return the chosen device
+            __choose_device
+            ;;
+    esac
 }
 
 __get_dpi_tag() {
@@ -180,4 +271,27 @@ __get_dpi_tag() {
     else
         echo "unknown"
     fi
+}
+
+__get_battery_status_tag() {
+    case "$1" in
+        1)
+            echo "Unknown"
+            ;;
+        2)
+            echo "Charging"
+            ;;
+        3)
+            echo "Discharging"
+            ;;
+        4)
+            echo "Not charging"
+            ;;
+        5)
+            echo "Full"
+            ;;
+        *)
+            echo "Unknown"
+            ;;
+    esac
 }

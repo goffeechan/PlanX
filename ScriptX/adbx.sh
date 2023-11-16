@@ -1,6 +1,19 @@
 #!/bin/sh
-# A wrapper for adb
-# If there are multiple devices and emulators connected, then prompt user to choose one
+# adbx - A wrapper function for adb that automatically selects the device to use if multiple devices are connected.
+#
+# Usage:
+#   adbx [options] <command> [<args>]
+#
+# Options:
+#   -s <serialNumber>    - directs command to the device or emulator with the given serial number
+#   -d <serialNumber>    - directs command to the only connected USB device with the given serial number
+#   -e                  - directs command to the only running emulator
+#   devices             - prints the list of all connected devices
+#
+# If multiple devices are connected, adbx will prompt the user to select the device to use.
+#
+# Returns:
+#   0 if the command was successful, non-zero otherwise.
 adbx() {
     case $(__number_of_connected_devices) in
         0)
@@ -22,7 +35,7 @@ adbx() {
 }
 
 # Toggle layout bounds in developer options
-adbx.layout.bounds() {
+adbx.bounds() {
     if [ "$1" != false ] && [ "$1" != true ]; then
         __echo "Wrong arguments, use true or false"
         return 1
@@ -47,7 +60,7 @@ adbx.layout.bounds() {
 }
 
 # Toggle animation in developer options
-adbx.animation() {
+adbx.anim() {
     if [ "$1" != 0 ] && [ "$1" != 1 ]; then
         __echo "Wrong arguments, use 0 or 1"
         return 1
@@ -73,7 +86,7 @@ adbx.animation() {
     esac
 }
 
-adbx.animation.window() {
+adbx.anim.window() {
     if [ "$1" != 0 ] && [ "$1" != 1 ]; then
         __echo "Wrong arguments, use 0 or 1"
         return 1
@@ -81,7 +94,7 @@ adbx.animation.window() {
     adbx shell settings put global window_animation_scale $1
 }
 
-adbx.animation.transition() {
+adbx.anim.transition() {
     if [ "$1" != 0 ] && [ "$1" != 1 ]; then
         __echo "Wrong arguments, use 0 or 1"
         return 1
@@ -89,7 +102,7 @@ adbx.animation.transition() {
     adbx shell settings put global transition_animation_scale $1
 }
 
-adbx.animation.duration() {
+adbx.anim.duration() {
     if [ "$1" != 0 ] && [ "$1" != 1 ]; then
         __echo "Wrong arguments, use 0 or 1"
         return 1
@@ -140,7 +153,7 @@ adbx.bugreport() {
     adbx bugreport
 }
 
-adbx.accessibility() {
+adbx.a11y() {
     if [ "$1" = false ]; then
         adbx shell settings put secure enabled_accessibility_services com.android.talkback/com.google.android.marvin.talkback.TalkBackService
     elif [ "$1" = true ]; then
@@ -168,7 +181,7 @@ adbx.ip() {
     adbx shell ifconfig wlan0
 }
 
-adbx.hard.info() {
+adbx.hardinfo() {
     device=$(__get_device)
     brand=$(adb -s $device shell getprop ro.product.brand)
     model=$(adb -s $device shell getprop ro.product.model)
@@ -178,7 +191,7 @@ adbx.hard.info() {
     imei=$(adb -s $device shell service call iphonesubinfo 1 | awk -F "'" '{print $2}' | sed '1 d' | tr -d '.' | awk '{print}' ORS='')
 }
 
-adbx.soft.info() {
+adbx.softinfo() {
     device=$(__get_device)
     osVersion=$(adb -s $device shell getprop ro.build.version.release)
     sdkVersion=$(adb -s $device shell getprop ro.build.version.sdk)
@@ -189,7 +202,7 @@ adbx.soft.info() {
     __echo "Build number: $buildNumber"
 }
 
-adbx.battery.info() {
+adbx.battery() {
     device=$(__get_device)
     batteryLevel=$(adb -s $device shell dumpsys battery | grep level | awk '{print $2}')
     batteryStatus=$(adb -s $device shell dumpsys battery | grep status | awk '{print $2}')
@@ -225,8 +238,32 @@ adbx.top() {
     fi
 }
 
-# A wrapper for echo
-# format: *** adbx: {message} ***
+# Print the help message for all above functions
+adbx.help() {
+    echo "adbx - A wrapper function for adb that automatically selects the device to use if multiple devices are connected."
+    echo ""
+    echo "Usage:"
+    echo "  adbx [options] <command> [<args>]"
+    echo ""
+    echo "Functions:"
+    echo "  adbx.bounds()           - Toggle layout bounds in developer options"
+    echo "  adbx.anim()             - Toggle animation in developer options"
+    echo "  adbx.anim.window()      - Toggle window animation in developer options"
+    echo "  adbx.anim.transition()  - Toggle transition animation in developer options"
+    echo "  adbx.anim.duration()    - Toggle animator duration in developer options"
+    echo "  adbx.topactivity()      - Get the name of the top activity"
+    echo "  adbx.wm.size()          - Get the width and height of the device in px and dp"
+    echo "  adbx.wm.density()       - Get device DPI"
+    echo "  adbx.bugreport()        - Bug report"
+    echo "  adbx.a11y()             - Toggle accessibility service"
+    echo "  adbx.server.kill()      - Kill adb server"
+    echo "  adbx.server.start()     - Start adb server"
+    echo "  adbx.server.restart()   - Restart adb server"
+    echo "  adbx.ip()               - Get device IP"
+    echo "  adbx.hardinfo()         - Get device hardware info"
+    echo "  adbx.softinfo()         - Get device software"
+}
+
 __echo() {
     echo "*** adbx: $1 ***"
 }
